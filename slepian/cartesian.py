@@ -4,11 +4,11 @@ import numpy as np
 import numpy.ma as ma
 import numpy.linalg as linalg
 
-def integrate_over_domain( basis_1, basis_2, nx, ny, domain ):
-    x = np.linspace(0, 2*np.pi, nx)
-    y = np.linspace(0, 2*np.pi, ny)
-    dx = 2.*np.pi/nx
-    dy = 2.*np.pi/ny
+def integrate_over_domain( domain, basis_1, basis_2, nx, ny):
+    x = np.linspace(0, domain.extent[0], nx)
+    y = np.linspace(0, domain.extent[1], ny)
+    dx = domain.extent[0]/nx
+    dy = domain.extent[1]/ny
     xgrid, ygrid = np.meshgrid(x,y)
     domain_grid = domain.in_subdomain(xgrid, ygrid)
     fn1 = ma.masked_where( ~domain_grid, basis_1(xgrid,ygrid))
@@ -16,58 +16,57 @@ def integrate_over_domain( basis_1, basis_2, nx, ny, domain ):
     value = np.sum( fn1*fn2 )*dx*dy
     return value
     
-def generate_1D_basis_functions():
-    yield lambda x: np.ones_like(x)/np.sqrt(2.*np.pi)
+def generate_1D_basis_functions( length ):
+    yield lambda x: np.ones_like(x)/np.sqrt(length)
     n = 1
     while True:
-        yield lambda x: np.cos(n*x)/np.sqrt(np.pi)
-        yield lambda x: np.sin(n*x)/np.sqrt(np.pi)
+        yield lambda x: np.cos(n*np.pi*x/length)/np.sqrt(length/2.)
+        yield lambda x: np.sin(n*np.pi*x/length)/np.sqrt(length/2.)
         n += 1
 
-def generate_2D_basis_functions(nmax):
-    genX = generate_1D_basis_functions()
+def generate_2D_basis_functions(nmax, width, height):
+    genX = generate_1D_basis_functions(width)
     for ii in range(2*nmax + 1):
-        genY = generate_1D_basis_functions()
+        genY = generate_1D_basis_functions(height)
         xfn = genX.next()
         for jj in range(2*nmax + 1):
             yfn = genY.next()
             yield lambda x, y : xfn(x)*yfn(y)
     raise StopIteration
 
-def assemble_slepian_matrix( nmax, domain ):
+def assemble_slepian_matrix( domain, nmax ):
     mat = np.empty( ((2*nmax+1)**2, (2*nmax+1)**2) )
     nx, ny = (10*nmax, 10*nmax) # 10 quadrature points per wavelegth
-    gen1 = generate_2D_basis_functions(nmax)
+    gen1 = generate_2D_basis_functions(nmax, domain.extent[0], domain.extent[1])
     for ii in range((2*nmax+1)**2):
-        gen2 = generate_2D_basis_functions(nmax)
+        gen2 = generate_2D_basis_functions(nmax, domain.extent[0], domain.extent[1])
         b1 = gen1.next()
         for jj in range((2*nmax+1)**2):
             b2 = gen2.next()
-            mat[ii, jj] = integrate_over_domain( b1, b2, nx, ny, 
-                                                 domain )
+            mat[ii, jj] = integrate_over_domain( domain, b1, b2, nx, ny)
+
+    for i in range((2*nmax+1)**2):
     return mat
            
-def reconstruct_eigenvectors(eigenvecs, eigenvals, nmax, shannon, nx=100, ny=100):
-
-    # Shannon number cannot be larger than n_modes:
+def reconstruct_eigenvectors(domain, eigenvecs, eigenvals, nmax, cutoff=0.5, nx=100, ny=100):
     n_modes = (2*nmax+1)**2
-    assert (shannon < n_modes)
 
     # Sort by the largest eigenvalues
     idx = eigenvals.argsort()[::-1]   
     sorted_eigenvals = eigenvals[idx]
     sorted_eigenvecs = eigenvecs[:,idx]
+    cutoff_n = np.argmin( np.abs(cutoff - sorted_eigenvals/sorted_eigenvals[0]))
 
     # Setup the grid for evaluating the functions
-    x = np.linspace(0, 2*np.pi, nx)
-    y = np.linspace(0, 2*np.pi, ny)
+    x = np.linspace(0, domain.extent[0], nx)
+    y = np.linspace(0, domain.extent[1], ny)
     xgrid, ygrid = np.meshgrid(x,y)
 
     solution = []
 
-    for i in range(shannon):
+    for i in range(cutoff_n):
         vec = sorted_eigenvecs[:,i]
-        gen = generate_2D_basis_functions(nmax)
+        gen = generate_2D_basis_functions(nmax, domain.extent[0], domain.extent[1])
         slepian_function = np.zeros_like(xgrid)
         for j in range(n_modes):
             try:
@@ -78,12 +77,12 @@ def reconstruct_eigenvectors(eigenvecs, eigenvals, nmax, shannon, nx=100, ny=100
         solution.append( (sorted_eigenvals[i], slepian_function) )
     return solution
 
-def compute_slepian_basis( nmax, domain ):
+def compute_slepian_basis( domain, nmax ):
     print("Assembling matrix")
-    mat = assemble_slepian_matrix( nmax, domain )
+    mat = assemble_slepian_matrix( domain, nmax )
     print("Solving eigenvalue problem")
     eigenvals,eigenvecs = linalg.eigh(mat)
     print("Reconstructing eigenvectors")
-    shannon = int(1.5*np.ceil(nmax*nmax*domain.area/4./np.pi))
-    basis = reconstruct_eigenvectors( eigenvecs, eigenvals, nmax, shannon)
+    shannon = int(1.5*np.ceil(np.pi*nmax*nmax*domain.area/domain.extent[0]/domain.extent[1]))
+    basis = reconstruct_eigenvectors( domain, eigenvecs, eigenvals, nmax, cutoff=0.5)
     return basis
