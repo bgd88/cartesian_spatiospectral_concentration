@@ -4,13 +4,13 @@ import numpy as np
 import numpy.ma as ma
 import numpy.linalg as linalg
 
-def integrate_over_domain( basis_1, basis_2, nx, ny, in_domain ):
+def integrate_over_domain( basis_1, basis_2, nx, ny, domain ):
     x = np.linspace(0, 2*np.pi, nx)
     y = np.linspace(0, 2*np.pi, ny)
     dx = 2.*np.pi/nx
     dy = 2.*np.pi/ny
     xgrid, ygrid = np.meshgrid(x,y)
-    domain_grid = in_domain(xgrid, ygrid)
+    domain_grid = domain.in_subdomain(xgrid, ygrid)
     fn1 = ma.masked_where( ~domain_grid, basis_1(xgrid,ygrid))
     fn2 = ma.masked_where( ~domain_grid, basis_2(xgrid,ygrid))
     value = np.sum( fn1*fn2 )*dx*dy
@@ -34,7 +34,7 @@ def generate_2D_basis_functions(nmax):
             yield lambda x, y : xfn(x)*yfn(y)
     raise StopIteration
 
-def assemble_slepian_matrix( nmax, in_domain ):
+def assemble_slepian_matrix( nmax, domain ):
     mat = np.empty( ((2*nmax+1)**2, (2*nmax+1)**2) )
     nx, ny = (10*nmax, 10*nmax) # 10 quadrature points per wavelegth
     gen1 = generate_2D_basis_functions(nmax)
@@ -44,7 +44,7 @@ def assemble_slepian_matrix( nmax, in_domain ):
         for jj in range((2*nmax+1)**2):
             b2 = gen2.next()
             mat[ii, jj] = integrate_over_domain( b1, b2, nx, ny, 
-                                                 in_domain )
+                                                 domain )
     return mat
            
 def reconstruct_eigenvectors(eigenvecs, eigenvals, nmax, shannon, nx=100, ny=100):
@@ -78,12 +78,12 @@ def reconstruct_eigenvectors(eigenvecs, eigenvals, nmax, shannon, nx=100, ny=100
         solution.append( (sorted_eigenvals[i], slepian_function) )
     return solution
 
-def compute_slepian_basis( nmax, in_domain ):
+def compute_slepian_basis( nmax, domain ):
     print("Assembling matrix")
-    mat = assemble_slepian_matrix( nmax, in_domain )
+    mat = assemble_slepian_matrix( nmax, domain )
     print("Solving eigenvalue problem")
     eigenvals,eigenvecs = linalg.eigh(mat)
     print("Reconstructing eigenvectors")
-    shannon = int(1.5*np.ceil(nmax*nmax*in_domain.area/4./np.pi))
+    shannon = int(1.5*np.ceil(nmax*nmax*domain.area/4./np.pi))
     basis = reconstruct_eigenvectors( eigenvecs, eigenvals, nmax, shannon)
     return basis
