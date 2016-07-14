@@ -43,7 +43,12 @@ def assemble_slepian_matrix( domain, nmax ):
         b1 = next(gen1)
         for jj in range((2*nmax+1)**2):
             b2 = next(gen2)
-            mat[ii, jj] = integrate_over_domain( domain, b1, b2, nx, ny)
+            if jj <= ii:  ## Not necessary to calculate the others due to symmetry
+                mat[ii, jj] = integrate_over_domain( domain, b1, b2, nx, ny)
+    # Handle the symmetry of the matrix
+    for ii in range((2*nmax+1)**2):
+        for jj in range(ii, (2*nmax+1)**2):
+            mat[ii,jj] = mat[jj,ii]
     return mat
            
 def reconstruct_eigenvectors(domain, eigenvecs, eigenvals, nmax, cutoff=0.5, nx=100, ny=100):
