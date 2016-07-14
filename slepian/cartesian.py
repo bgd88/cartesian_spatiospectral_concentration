@@ -44,8 +44,6 @@ def assemble_slepian_matrix( domain, nmax ):
         for jj in range((2*nmax+1)**2):
             b2 = gen2.next()
             mat[ii, jj] = integrate_over_domain( domain, b1, b2, nx, ny)
-
-    for i in range((2*nmax+1)**2):
     return mat
            
 def reconstruct_eigenvectors(domain, eigenvecs, eigenvals, nmax, cutoff=0.5, nx=100, ny=100):
