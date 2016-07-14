@@ -28,9 +28,9 @@ def generate_2D_basis_functions(nmax, width, height):
     genX = generate_1D_basis_functions(width)
     for ii in range(2*nmax + 1):
         genY = generate_1D_basis_functions(height)
-        xfn = genX.next()
+        xfn = next(genX)
         for jj in range(2*nmax + 1):
-            yfn = genY.next()
+            yfn = next(genY)
             yield lambda x, y : xfn(x)*yfn(y)
     raise StopIteration
 
@@ -40,9 +40,9 @@ def assemble_slepian_matrix( domain, nmax ):
     gen1 = generate_2D_basis_functions(nmax, domain.extent[0], domain.extent[1])
     for ii in range((2*nmax+1)**2):
         gen2 = generate_2D_basis_functions(nmax, domain.extent[0], domain.extent[1])
-        b1 = gen1.next()
+        b1 = next(gen1)
         for jj in range((2*nmax+1)**2):
-            b2 = gen2.next()
+            b2 = next(gen2)
             mat[ii, jj] = integrate_over_domain( domain, b1, b2, nx, ny)
     return mat
            
@@ -68,7 +68,7 @@ def reconstruct_eigenvectors(domain, eigenvecs, eigenvals, nmax, cutoff=0.5, nx=
         slepian_function = np.zeros_like(xgrid)
         for j in range(n_modes):
             try:
-                fn = gen.next()
+                fn = next(gen)
                 slepian_function += vec[j]*fn(xgrid,ygrid)
             except StopIteration:
                 raise Exception("Mismatch between expected length of an eigenvector and its actual length")
