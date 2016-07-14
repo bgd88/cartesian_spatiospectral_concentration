@@ -1,5 +1,8 @@
 import numpy as np
 import numpy.ma as ma
+import pandas as pd
+from matplotlib.path import Path
+from mpl_toolkits.basemap import Basemap
 
 class Subdomain(object):
 
@@ -92,3 +95,40 @@ class Rectangle(Subdomain):
     def _compute_area(self):
         return (self.upper_right[0] - self.lower_left[0])*\
                (self.upper_right[1] - self.lower_left[1])
+
+class LatLonFromPerimeterFile(Subdomain):
+    def __init__(self, perimeterFile):
+        """Get slab perimeter from file."""
+        columns = ['lon', 'lat']
+        self.perimeter = pd.read_table(perimeterFile, sep=' ',
+                                  skipinitialspace=True,
+                                  names=columns, header=None)
+        map_range = np.array([min(self.perimeter['lat']), max(self.perimeter['lat']),
+                              min(self.perimeter['lon']), max(self.perimeter['lon'])])
+        self.bmap = self._create_basemap(map_range)
+        x, y = self.bmap(self.perimeter['lon'].values, self.perimeter['lat'].values)
+        self.perimeter['x'], self.perimeter['y'] = 2.*np.pi*(x-min(x))/max(x), 2*np.pi*(y-min(y))/max(y) 
+        extent = (max(self.perimeter['x']), max(self.perimeter['y']))
+        self.perimeter_verts = [p for p in zip(self.perimeter['x'].values,
+                                          self.perimeter['y'].values)]
+        perimeter_path_codes = np.insert(4*np.ones(len(self.perimeter_verts)-1),0,1)
+        self.perimeter_path = Path(self.perimeter_verts, perimeter_path_codes)
+        Subdomain.__init__(self, extent)
+
+    def in_subdomain(self, x, y):
+        grid_pts = np.dstack([x, y]).reshape(np.product(x.shape), 2)
+        return self.perimeter_path.contains_points(grid_pts).reshape(x.shape)
+
+    def _create_basemap(self, map_range, resolution='l'):
+        """Create basemap instance from map range."""
+        center = [(map_range[1]+map_range[0])/2.0, (map_range[3]+map_range[2])/2.0]
+        basemap_map_instance = \
+        Basemap(projection='lcc',
+                lat_0=center[0], lon_0=center[1],
+                llcrnrlat=map_range[0], urcrnrlat=map_range[1],
+                llcrnrlon=map_range[2], urcrnrlon=map_range[3],
+                resolution=resolution)
+        return basemap_map_instance
+
+
+
