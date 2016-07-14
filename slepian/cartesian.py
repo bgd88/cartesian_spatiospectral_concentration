@@ -77,6 +77,8 @@ def reconstruct_eigenvectors(domain, eigenvecs, eigenvals, nmax, cutoff=0.5, nx=
                 slepian_function += vec[j]*fn(xgrid,ygrid)
             except StopIteration:
                 raise Exception("Mismatch between expected length of an eigenvector and its actual length")
+        # Normalize solution
+        slepian_function /= np.sqrt(np.sum(slepian_function*slepian_function)*domain.extent[0]*domain.extent[1]/nx/ny)
         solution.append( (sorted_eigenvals[i], slepian_function) )
     return solution
 
