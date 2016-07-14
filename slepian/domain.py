@@ -73,3 +73,22 @@ class Disc(Subdomain):
 
     def _compute_area(self):
         return self._radius*self._radius*np.pi
+
+class Rectangle(Subdomain):
+    def __init__( self, extent, lower_left, upper_right):
+        """
+        Initialize a 2D rectangle subdomain.
+        """
+        assert (lower_left[0] < upper_right[0])
+        assert (lower_left[1] < upper_right[1])
+        self.lower_left = lower_left
+        self.upper_right = upper_right
+        Subdomain.__init__(self, extent)
+
+    def in_subdomain(self, x, y):
+        return np.logical_and( np.logical_and( x > self.lower_left[0], x < self.upper_right[0]),
+               np.logical_and(y > self.lower_left[1], y < self.upper_right[1]) )
+
+    def _compute_area(self):
+        return (self.upper_right[0] - self.lower_left[0])*\
+               (self.upper_right[1] - self.lower_left[1])
