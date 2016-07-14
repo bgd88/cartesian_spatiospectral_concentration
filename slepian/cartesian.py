@@ -1,6 +1,8 @@
+from __future__ import print_function
 import numpy as np
 import numpy.ma as ma
 import matplotlib.pyplot as plt
+import numpy.linalg as linalg
 
 def integrate_over_domain( basis_1, basis_2, nx, ny, in_domain ):
     x = np.linspace(0, 2*np.pi, nx)
@@ -46,12 +48,44 @@ def assemble_slepian_matrix( nmax, in_domain ):
     return mat
            
 def in_domain( x, y ):
-    r = 300.0
+    r = 1.0
     return (x-np.pi)*(x-np.pi) + (y-np.pi)*(y-np.pi) <= r*r
 
-mat = assemble_slepian_matrix( 2, in_domain )
+nmax = 4
+print("Assembling matrix")
+mat = assemble_slepian_matrix( nmax, in_domain )
+print("Solving eigenvalue problem")
+eigenvals,eigenvecs = linalg.eigh(mat)
+idx = eigenvals.argsort()[::-1]   
+eigenvals = eigenvals[idx]
+eigenvecs = eigenvecs[:,idx]
+print("Reconstructing eigenvectors")
 for i in range(mat.shape[0]):
-    print mat[i,i]
+    vec = eigenvecs[:,i]
+    gen = generate_2D_basis_functions(nmax)
+    nx = 300
+    ny = 300
+    x = np.linspace(0, 2*np.pi, nx)
+    y = np.linspace(0, 2*np.pi, ny)
+    xgrid, ygrid = np.meshgrid(x,y)
+    values = np.zeros_like(xgrid)
+    print(eigenvals[i])
+    i = 0
+    while True:
+        try:
+            fn = gen.next()
+            values += vec[i]*fn(xgrid,ygrid)
+            i += 1
+        except StopIteration:
+            break
+    cm = plt.pcolormesh(xgrid,ygrid,values, cmap='RdBu', lw=0)
+    plt.colorbar()
+    c = plt.Circle( (np.pi,np.pi), 3., color='k', fill=False)
+    plt.gca().add_artist(c)
+    plt.show()
+    plt.clf()
+
+
 plt.imshow(mat)
 plt.show()
 
