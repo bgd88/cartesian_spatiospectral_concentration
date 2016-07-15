@@ -1,1 +1,6 @@
 *.pyc
+*.pkl
+dist/*
+build*
+sleppy.egg*
+figures*

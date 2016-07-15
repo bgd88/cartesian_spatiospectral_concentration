@@ -20,11 +20,14 @@ def integrate_over_domain( domain, basis_1, basis_2, nx, ny):
 
     
 def generate_1D_basis_functions( length ):
-    yield lambda x: np.ones_like(x)/np.sqrt(length)
+    #yield lambda x: np.ones_like(x)/np.sqrt(length)
+    yield lambda x: np.ones_like(x)/np.sqrt(2.*np.pi)
     n = 1
     while True:
-        yield lambda x: np.cos(n*np.pi*x/length)/np.sqrt(length/2.)
-        yield lambda x: np.sin(n*np.pi*x/length)/np.sqrt(length/2.)
+        #yield lambda x: np.cos(n*np.pi*x/length)/np.sqrt(length/2.)
+        #yield lambda x: np.sin(n*np.pi*x/length)/np.sqrt(length/2.)
+        yield lambda x: np.cos(n*x)/np.sqrt(np.pi)
+        yield lambda x: np.sin(n*x)/np.sqrt(np.pi)
         n += 1
 
 
