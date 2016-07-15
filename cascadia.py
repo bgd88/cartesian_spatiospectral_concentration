@@ -13,7 +13,7 @@ x = np.linspace(0, domain.extent[0], nx)
 y = np.linspace(0, domain.extent[1], ny)
 xgrid, ygrid = np.meshgrid(x,y)
 
-basis = slepian.compute_slepian_basis( domain, 2 )
+basis = slepian.compute_slepian_basis( domain, 6)
 with open(out_file, 'wb') as f:
     pickle.dump([domain, basis, xgrid, ygrid], f)
 

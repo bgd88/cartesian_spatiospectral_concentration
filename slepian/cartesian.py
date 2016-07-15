@@ -3,6 +3,7 @@ from __future__ import absolute_import
 import numpy as np
 import numpy.ma as ma
 import numpy.linalg as linalg
+import multiprocessing 
 
 def integrate_over_domain( domain, basis_1, basis_2, nx, ny):
     x = np.linspace(0, domain.extent[0], nx)
@@ -34,22 +35,48 @@ def generate_2D_basis_functions(nmax, width, height):
             yield lambda x, y : xfn(x)*yfn(y)
     raise StopIteration
 
-def assemble_slepian_matrix( domain, nmax ):
-    mat = np.empty( ((2*nmax+1)**2, (2*nmax+1)**2) )
+def assemble_slepian_matrix(domain, nmax, numProc):
+    assert type(numProc) == int, "Pretty sure you should have an integer number of processors"
+    N = (2*nmax+1)**2
+    ii = 0
+    count = 0
+    index_ranges = []
+    mat = np.empty( (N, N) )
+    while count < numProc:
+        jj = min(np.ceil(np.sqrt(N**2/numProc) + ii**2 ).astype(int), N-1)
+        index_ranges.append([ii, jj])
+        ii = jj+1
+        count +=1 
+    jobs = []
+    for index_range in index_ranges:
+#        assemble_slepian_matrix_block(mat, domain, index_range, nmax)
+        print([index_range, N])
+        proc = multiprocessing.Process(
+                target=assemble_slepian_matrix_block, 
+                args=(mat, domain, index_range, nmax) )
+        jobs.append(proc)
+        proc.start()
+    
+    for j in jobs:
+        j.join()
+    
+    # Handle the symmetry of the matrix
+    for ii in range(N):
+        for jj in range(ii, N):
+            mat[ii,jj] = mat[jj,ii]
+    return mat
+        
+def assemble_slepian_matrix_block(mat, domain, index_range, nmax):
     nx, ny = (10*nmax, 10*nmax) # 10 quadrature points per wavelegth
     gen1 = generate_2D_basis_functions(nmax, domain.extent[0], domain.extent[1])
     for ii in range((2*nmax+1)**2):
-        gen2 = generate_2D_basis_functions(nmax, domain.extent[0], domain.extent[1])
         b1 = next(gen1)
-        for jj in range((2*nmax+1)**2):
-            b2 = next(gen2)
-            if jj <= ii:  ## Not necessary to calculate the others due to symmetry
-                mat[ii, jj] = integrate_over_domain( domain, b1, b2, nx, ny)
-    # Handle the symmetry of the matrix
-    for ii in range((2*nmax+1)**2):
-        for jj in range(ii, (2*nmax+1)**2):
-            mat[ii,jj] = mat[jj,ii]
-    return mat
+        if (ii >= index_range[0]) and (ii <= index_range[1]):
+            gen2 = generate_2D_basis_functions(nmax, domain.extent[0], domain.extent[1])
+            for jj in range((2*nmax+1)**2):
+                b2 = next(gen2)
+                if jj <= ii:  ## Not necessary to calculate the others due to symmetry
+                    mat[ii, jj] = integrate_over_domain( domain, b1, b2, nx, ny)
            
 def reconstruct_eigenvectors(domain, eigenvecs, eigenvals, nmax, cutoff=0.5, nx=100, ny=100):
     n_modes = (2*nmax+1)**2
@@ -82,9 +109,9 @@ def reconstruct_eigenvectors(domain, eigenvecs, eigenvals, nmax, cutoff=0.5, nx=
         solution.append( (sorted_eigenvals[i], slepian_function) )
     return solution
 
-def compute_slepian_basis( domain, nmax ):
+def compute_slepian_basis( domain, nmax, numProc=1):
     print("Assembling matrix")
-    mat = assemble_slepian_matrix( domain, nmax )
+    mat = assemble_slepian_matrix( domain, nmax, numProc )
     print("Solving eigenvalue problem")
     eigenvals,eigenvecs = linalg.eigh(mat)
     print("Reconstructing eigenvectors")
