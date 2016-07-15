@@ -5,6 +5,7 @@ import numpy.ma as ma
 import numpy.linalg as linalg
 import multiprocessing 
 
+
 def integrate_over_domain( domain, basis_1, basis_2, nx, ny):
     x = np.linspace(0, domain.extent[0], nx)
     y = np.linspace(0, domain.extent[1], ny)
@@ -16,6 +17,7 @@ def integrate_over_domain( domain, basis_1, basis_2, nx, ny):
     fn2 = ma.masked_where( ~domain_grid, basis_2(xgrid,ygrid))
     value = np.sum( fn1*fn2 )*dx*dy
     return value
+
     
 def generate_1D_basis_functions( length ):
     yield lambda x: np.ones_like(x)/np.sqrt(length)
@@ -24,6 +26,7 @@ def generate_1D_basis_functions( length ):
         yield lambda x: np.cos(n*np.pi*x/length)/np.sqrt(length/2.)
         yield lambda x: np.sin(n*np.pi*x/length)/np.sqrt(length/2.)
         n += 1
+
 
 def generate_2D_basis_functions(nmax, width, height):
     genX = generate_1D_basis_functions(width)
@@ -35,6 +38,7 @@ def generate_2D_basis_functions(nmax, width, height):
             yield lambda x, y : xfn(x)*yfn(y)
     raise StopIteration
 
+
 def assemble_slepian_matrix(domain, nmax, numProc):
     assert type(numProc) == int, "Pretty sure you should have an integer number of processors"
     N = (2*nmax+1)**2
@@ -43,14 +47,12 @@ def assemble_slepian_matrix(domain, nmax, numProc):
     index_ranges = []
     mat = np.empty( (N, N) )
     while count < numProc:
-        jj = min(np.ceil(np.sqrt(N**2/numProc) + ii**2 ).astype(int), N-1)
+        jj = min(np.ceil( np.sqrt(N**2/(numProc+1) + ii**2) ).astype(int), N-1)
         index_ranges.append([ii, jj])
         ii = jj+1
         count +=1 
     jobs = []
     for index_range in index_ranges:
-#        assemble_slepian_matrix_block(mat, domain, index_range, nmax)
-        print([index_range, N])
         proc = multiprocessing.Process(
                 target=assemble_slepian_matrix_block, 
                 args=(mat, domain, index_range, nmax) )
@@ -65,6 +67,7 @@ def assemble_slepian_matrix(domain, nmax, numProc):
         for jj in range(ii, N):
             mat[ii,jj] = mat[jj,ii]
     return mat
+
         
 def assemble_slepian_matrix_block(mat, domain, index_range, nmax):
     nx, ny = (10*nmax, 10*nmax) # 10 quadrature points per wavelegth
@@ -109,7 +112,7 @@ def reconstruct_eigenvectors(domain, eigenvecs, eigenvals, nmax, cutoff=0.5, nx=
         solution.append( (sorted_eigenvals[i], slepian_function) )
     return solution
 
-def compute_slepian_basis( domain, nmax, numProc=1):
+def compute_slepian_basis( domain, nmax, numProc=multiprocessing.cpu_count()):
     print("Assembling matrix")
     mat = assemble_slepian_matrix( domain, nmax, numProc )
     print("Solving eigenvalue problem")
