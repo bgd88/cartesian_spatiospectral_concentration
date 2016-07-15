@@ -47,12 +47,14 @@ def assemble_slepian_matrix(domain, nmax, numProc):
     index_ranges = []
     mat = np.empty( (N, N) )
     while count < numProc:
-        jj = min(np.ceil( np.sqrt(N**2/(numProc+1) + ii**2) ).astype(int), N-1)
+        jj = min(np.ceil( np.sqrt(N**2/numProc + ii**2) ).astype(int), N-1)
         index_ranges.append([ii, jj])
         ii = jj+1
-        count +=1 
+        count +=1
+    #assert jj==N-1, "Something fishy with the matrix partition" 
     jobs = []
     for index_range in index_ranges:
+        print(index_range, N-1)
         proc = multiprocessing.Process(
                 target=assemble_slepian_matrix_block, 
                 args=(mat, domain, index_range, nmax) )
