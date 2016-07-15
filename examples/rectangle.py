@@ -1,23 +1,22 @@
-import sys
 import numpy as np
 import matplotlib.pyplot as plt
-import slepian
+import sleppy
 
-R = 2.
-domain = slepian.Disc( (2.*np.pi, 2.*np.pi), (np.pi,np.pi), R)
+domain = sleppy.Rectangle( (10., 10.), (2., 2.), (8.,8.))
 
 nx,ny = 100,100
-x = np.linspace(0, 2*np.pi, nx)
-y = np.linspace(0, 2*np.pi, ny)
+x = np.linspace(0, 10., nx)
+y = np.linspace(0, 10., ny)
 xgrid, ygrid = np.meshgrid(x,y)
 
-basis = slepian.compute_slepian_basis( domain, 10)
+basis = sleppy.compute_slepian_basis( domain, 10 )
 
 for (eigenvalue, function) in basis:
     print("Slepian basis function with eigenvalue : ",eigenvalue)
     cm = plt.pcolormesh(xgrid,ygrid,function, cmap='RdBu', lw=0)
     plt.colorbar(cm)
-    c = plt.Circle( (np.pi,np.pi), R, color='k', fill=False)
-    plt.gca().add_artist(c)
+    r = plt.Rectangle( (2.,2.), 6.,6., fill=False)
+    plt.gca().add_artist(r)
     plt.show()
     plt.clf()
+

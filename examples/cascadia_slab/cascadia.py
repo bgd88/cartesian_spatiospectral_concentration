@@ -1,19 +1,20 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import slepian
+import sleppy
 import matplotlib.patches as patches
 import pickle
 
-perimeter_file = "examples/cas_slab1.0.clip"
-out_file = "cascadia_basis.pkl"
-domain = slepian.LatLonFromPerimeterFile(perimeter_file)
+nmax = 8
+perimeter_file = "cas_slab1.0.clip"
+out_file = "cascadia_basis_nmax{}.pkl".format(nmax)
+domain = sleppy.LatLonFromPerimeterFile(perimeter_file)
 
 nx,ny = 100,100
 x = np.linspace(0, domain.extent[0], nx)
 y = np.linspace(0, domain.extent[1], ny)
 xgrid, ygrid = np.meshgrid(x,y)
 
-basis = slepian.compute_slepian_basis( domain, 6)
+basis = sleppy.compute_slepian_basis( domain, nmax)
 with open(out_file, 'wb') as f:
     pickle.dump([domain, basis, xgrid, ygrid], f)
 
@@ -25,6 +26,6 @@ for (eigenvalue, function) in basis:
     patch = patches.PathPatch(domain.perimeter_path, facecolor='none', lw=2)
     plt.gca().add_patch(patch)
     plt.title( "Slepian basis function with eigenvalue : {}".format(eigenvalue) )
-    plt.savefig("figures/{}_eigenfunction.png".format(count), bbox_inches='tight', dpi=250)
+    plt.savefig("eigenfunction_{}_nmax{}.png".format(count, nmax), bbox_inches='tight', dpi=250)
     count += 1
     plt.clf()
