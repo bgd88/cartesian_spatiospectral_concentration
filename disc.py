@@ -1,8 +1,8 @@
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
 import slepian
 
-numProc = 2
 R = 2.
 domain = slepian.Disc( (2.*np.pi, 2.*np.pi), (np.pi,np.pi), R)
 
@@ -11,7 +11,7 @@ x = np.linspace(0, 2*np.pi, nx)
 y = np.linspace(0, 2*np.pi, ny)
 xgrid, ygrid = np.meshgrid(x,y)
 
-basis = slepian.compute_slepian_basis( domain, 6, 13 )
+basis = slepian.compute_slepian_basis( domain, 10)
 
 for (eigenvalue, function) in basis:
     print("Slepian basis function with eigenvalue : ",eigenvalue)
@@ -21,4 +21,3 @@ for (eigenvalue, function) in basis:
     plt.gca().add_artist(c)
     plt.show()
     plt.clf()
-

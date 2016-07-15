@@ -9,7 +9,7 @@ x = np.linspace(0, 10., nx)
 y = np.linspace(0, 10., ny)
 xgrid, ygrid = np.meshgrid(x,y)
 
-basis = slepian.compute_slepian_basis( domain, 6 )
+basis = slepian.compute_slepian_basis( domain, 10 )
 
 for (eigenvalue, function) in basis:
     print("Slepian basis function with eigenvalue : ",eigenvalue)

@@ -42,25 +42,43 @@ def generate_2D_basis_functions(nmax, width, height):
 def assemble_slepian_matrix(domain, nmax, numProc):
     assert type(numProc) == int, "Pretty sure you should have an integer number of processors"
     N = (2*nmax+1)**2
+    # Allocate room for the slepian matrix
+    mat = np.empty( (N, N) )
+
+    # Partition the rows among the processes,
+    # where we attempt to have each process
+    # get approximately the same number of entries
+    # to calculate. Since the matrix is symmetric,
+    # each process gets a different trapezoidal region
+    # of the overall matrix
     ii = 0
     count = 0
     index_ranges = []
-    mat = np.empty( (N, N) )
     while count < numProc:
         jj = min(np.ceil( np.sqrt(N**2/numProc + ii**2) ).astype(int), N-1)
         index_ranges.append([ii, jj])
         ii = jj+1
         count +=1
-    #assert jj==N-1, "Something fishy with the matrix partition" 
-    jobs = []
+
+    # Spin up the processes
+    jobs = [] # list of processes
+    pipes = [] # list of pipes for communication
     for index_range in index_ranges:
-        print(index_range, N-1)
+        c_recv, c_send = multiprocessing.Pipe(duplex=False)
         proc = multiprocessing.Process(
                 target=assemble_slepian_matrix_block, 
-                args=(mat, domain, index_range, nmax) )
+                args=(c_send, domain, index_range, nmax) )
+        pipes.append(c_recv)
         jobs.append(proc)
         proc.start()
-    
+
+    # Get the submatrices calculated in each of the pipes
+    # and fill the main matrix with them.
+    for conn, index_range in zip(pipes, index_ranges):
+        submatrix = conn.recv()[0]
+        mat[index_range[0]:index_range[1]+1, :] = submatrix
+
+    # Close the subprocesses
     for j in jobs:
         j.join()
     
@@ -71,17 +89,23 @@ def assemble_slepian_matrix(domain, nmax, numProc):
     return mat
 
         
-def assemble_slepian_matrix_block(mat, domain, index_range, nmax):
+def assemble_slepian_matrix_block(conn, domain, index_range, nmax):
+    N = (2*nmax+1)**2
+
+    # Allocate the submatrix
+    submatrix = np.empty( (index_range[1]-index_range[0]+1, N) )
     nx, ny = (10*nmax, 10*nmax) # 10 quadrature points per wavelegth
+
     gen1 = generate_2D_basis_functions(nmax, domain.extent[0], domain.extent[1])
-    for ii in range((2*nmax+1)**2):
+    for ii in range(N):
         b1 = next(gen1)
         if (ii >= index_range[0]) and (ii <= index_range[1]):
             gen2 = generate_2D_basis_functions(nmax, domain.extent[0], domain.extent[1])
-            for jj in range((2*nmax+1)**2):
+            for jj in range(N):
                 b2 = next(gen2)
                 if jj <= ii:  ## Not necessary to calculate the others due to symmetry
-                    mat[ii, jj] = integrate_over_domain( domain, b1, b2, nx, ny)
+                    submatrix[ii-index_range[0], jj] = integrate_over_domain( domain, b1, b2, nx, ny)
+    conn.send([submatrix,])
            
 def reconstruct_eigenvectors(domain, eigenvecs, eigenvals, nmax, cutoff=0.5, nx=100, ny=100):
     n_modes = (2*nmax+1)**2
