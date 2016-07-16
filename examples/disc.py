@@ -15,7 +15,6 @@ basis = sleppy.compute_slepian_basis( domain, 4)
 
 for (eigenvalue, function) in basis:
     print("Slepian basis function with eigenvalue : ",eigenvalue)
-    print(function)
     cm = plt.pcolormesh(xgrid,ygrid,function(xgrid, ygrid), cmap='RdBu', lw=0)
     plt.colorbar(cm)
     c = plt.Circle( (np.pi,np.pi), R, color='k', fill=False)
