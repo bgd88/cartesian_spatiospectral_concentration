@@ -5,6 +5,7 @@ import numpy.ma as ma
 import numpy.linalg as linalg
 import multiprocessing 
 from scipy.interpolate import LinearNDInterpolator as linear_interp
+import copy 
 
 def integrate_over_domain( domain, basis_1, basis_2, nx, ny):
     x = np.linspace(0, domain.extent[0], nx)
@@ -108,7 +109,7 @@ def assemble_slepian_matrix_block(conn, domain, index_range, nmax):
     conn.send([submatrix,])
            
 def reconstruct_eigenvectors(domain, eigenvecs, eigenvals, nmax, cutoff=0.5, nx=100, ny=100,
-                             basis_function_type='interpolated'):
+                             basis_function_type='exact'):
     n_modes = (2*nmax+1)**2
 
     # Sort by the largest eigenvalues
@@ -116,39 +117,76 @@ def reconstruct_eigenvectors(domain, eigenvecs, eigenvals, nmax, cutoff=0.5, nx=
     sorted_eigenvals = eigenvals[idx]
     sorted_eigenvecs = eigenvecs[:,idx]
     cutoff_n = np.argmin( np.abs(cutoff - sorted_eigenvals/sorted_eigenvals[0]))
-
-    # Setup the grid for evaluating the functions
-    x = np.linspace(0, domain.extent[0], nx)
-    y = np.linspace(0, domain.extent[1], ny)
-    xgrid, ygrid = np.meshgrid(x,y)
-    dx = domain.extent[0]/nx
-    dy = domain.extent[1]/ny
     solution = []
     
     for i in range(cutoff_n):
-        vec = sorted_eigenvecs[:,i]
+        spectral_coefs = sorted_eigenvecs[:, i]
         if basis_function_type is 'interpolated':
-            gen = generate_2D_basis_functions(nmax, domain.extent[0], domain.extent[1])
-            slepian_grid_values = np.zeros_like(xgrid)
-            for j in range(n_modes):
-                try:
-                    fn = next(gen)
-                    slepian_grid_values += vec[j]*fn(xgrid,ygrid)
-                except StopIteration:
-                    raise Exception("Mismatch between expected length of an eigenvector and its actual length")
-            # Normalize solution
-            slepian_grid_values /= np.sqrt(np.sum(slepian_grid_values*slepian_grid_values)/dx/dy)
-            pts, vals = [p for p in zip(xgrid.flatten(), ygrid.flatten())], slepian_grid_values.flatten()
-            slepian_function = linear_interp(pts, vals)
+            print("using interp")
+            # Create interpolator function
+            slepian_function = interpolated_slepian_basis_function(domain, spectral_coefs, nmax)
+            solution.append( (sorted_eigenvals[i], slepian_function) )
+        elif basis_function_type is 'exact':
+            # Create function using spectral coefficients
+            slepian_function = slepian_basis_function(domain, spectral_coefs, nmax)
             solution.append( (sorted_eigenvals[i], slepian_function) )
     return solution
 
-def compute_slepian_basis( domain, nmax, numProc=multiprocessing.cpu_count()):
+def compute_slepian_basis( domain, nmax, numProc=multiprocessing.cpu_count(), basis_function_type='exact'):
     print("Assembling matrix")
     mat = assemble_slepian_matrix( domain, nmax, numProc )
     print("Solving eigenvalue problem")
     eigenvals,eigenvecs = linalg.eigh(mat)
     print("Reconstructing eigenvectors")
     shannon = int(1.5*np.ceil(np.pi*nmax*nmax*domain.area/domain.extent[0]/domain.extent[1]))
-    basis = reconstruct_eigenvectors( domain, eigenvecs, eigenvals, nmax, cutoff=0.5)
+    basis = reconstruct_eigenvectors(domain, eigenvecs, eigenvals, nmax, 
+                                     basis_function_type=basis_function_type)
     return basis
+
+
+class slepian_basis_function(object):
+    "Create Slepian Basis Function from spectral coefficients."
+    def __init__(self, domain, spectral_coefs, nmax):
+        self.spectral_coefs = spectral_coefs
+        self.extent = domain.extent
+        self.nmax = nmax
+        self.nmodes = (2*nmax + 1)**2
+        # Check specral coeficients
+        error_message = "nmax not consistent with the number of spectral coefficients."
+        assert self.nmodes == self.spectral_coefs.size, error_message
+        self._set_normalization_coef()
+    
+    def _set_normalization_coef(self):
+        self.normalization_coef = np.sqrt(np.sum(self.spectral_coefs*self.spectral_coefs))/2.*np.pi/2.*np.pi
+
+    def __call__(self, x, y):
+        gen = generate_2D_basis_functions(self.nmax, self.extent[0], self.extent[1])
+        slepian_grid_values = np.zeros_like(x)
+        for coef in self.spectral_coefs:
+            try:
+                fn = next(gen)
+                slepian_grid_values += coef*fn(x,y)
+            except StopIteration:
+                raise Exception("Mismatch between expected length of an eigenvector and its actual length")
+        return slepian_grid_values/self.normalization_coef
+
+class interpolated_slepian_basis_function(slepian_basis_function):
+    def __init__(self, domain, spectral_coefs, nmax, nx=100, ny=100):
+        super().__init__(domain, spectral_coefs, nmax)
+        self.interpolator = self._create_interpolator(nx, ny)
+      
+    def _create_interpolator(self, nx, ny): 
+        # Setup the grid for evaluating the functions
+        x = np.linspace(0, self.extent[0], nx)
+        y = np.linspace(0, self.extent[1], ny)
+        xgrid, ygrid = np.meshgrid(x,y)
+        dx = self.extent[0]/nx
+        dy = self.extent[1]/ny
+        
+        slepian_grid_values = super().__call__(xgrid, ygrid) 
+        # Create linear interpolator
+        pts, vals = [p for p in zip(xgrid.flatten(), ygrid.flatten())], slepian_grid_values.flatten()
+        return linear_interp(pts, vals)
+    
+    def __call__(self, x, y):
+        return self.interpolator(x, y) 
