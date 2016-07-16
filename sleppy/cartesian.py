@@ -23,8 +23,8 @@ def generate_1D_basis_functions( length ):
     yield lambda x: np.ones_like(x)/np.sqrt(length)
     n = 1
     while True:
-        yield lambda x: np.cos(n*np.pi*x/length)/np.sqrt(length/2.)
-        yield lambda x: np.sin(n*np.pi*x/length)/np.sqrt(length/2.)
+        yield lambda x: np.cos(2.*n*np.pi*x/length)/np.sqrt(length/2.)
+        yield lambda x: np.sin(2.*n*np.pi*x/length)/np.sqrt(length/2.)
         n += 1
 
 
