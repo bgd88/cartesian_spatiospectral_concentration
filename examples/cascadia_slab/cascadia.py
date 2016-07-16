@@ -4,7 +4,7 @@ import sleppy
 import matplotlib.patches as patches
 import pickle
 
-nmax = 8
+nmax = 4
 perimeter_file = "cas_slab1.0.clip"
 out_file = "cascadia_basis_nmax{}.pkl".format(nmax)
 domain = sleppy.LatLonFromPerimeterFile(perimeter_file)
@@ -21,7 +21,7 @@ with open(out_file, 'wb') as f:
 count = 0
 for (eigenvalue, function) in basis:
     print("Slepian basis function with eigenvalue : ",eigenvalue)
-    cm = plt.pcolormesh(xgrid,ygrid,function, cmap='RdBu', lw=0)
+    cm = plt.pcolormesh(xgrid,ygrid,function(xgrid,ygrid), cmap='RdBu', lw=0)
     plt.colorbar(cm)
     patch = patches.PathPatch(domain.perimeter_path, facecolor='none', lw=2)
     plt.gca().add_patch(patch)

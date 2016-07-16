@@ -9,11 +9,11 @@ x = np.linspace(0, 10., nx)
 y = np.linspace(0, 10., ny)
 xgrid, ygrid = np.meshgrid(x,y)
 
-basis = sleppy.compute_slepian_basis( domain, 10 )
+basis = sleppy.compute_slepian_basis( domain, 4 )
 
 for (eigenvalue, function) in basis:
     print("Slepian basis function with eigenvalue : ",eigenvalue)
-    cm = plt.pcolormesh(xgrid,ygrid,function, cmap='RdBu', lw=0)
+    cm = plt.pcolormesh(xgrid,ygrid,function(xgrid,ygrid), cmap='RdBu', lw=0)
     plt.colorbar(cm)
     r = plt.Rectangle( (2.,2.), 6.,6., fill=False)
     plt.gca().add_artist(r)
