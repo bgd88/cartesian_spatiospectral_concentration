@@ -4,7 +4,7 @@ import numpy as np
 import numpy.ma as ma
 import numpy.linalg as linalg
 import multiprocessing 
-
+from scipy.interpolate import LinearNDInterpolator as linear_interp
 
 def integrate_over_domain( domain, basis_1, basis_2, nx, ny):
     x = np.linspace(0, domain.extent[0], nx)
@@ -107,7 +107,8 @@ def assemble_slepian_matrix_block(conn, domain, index_range, nmax):
                     submatrix[ii-index_range[0], jj] = integrate_over_domain( domain, b1, b2, nx, ny)
     conn.send([submatrix,])
            
-def reconstruct_eigenvectors(domain, eigenvecs, eigenvals, nmax, cutoff=0.5, nx=100, ny=100):
+def reconstruct_eigenvectors(domain, eigenvecs, eigenvals, nmax, cutoff=0.5, nx=100, ny=100,
+                             basis_function_type='interpolated'):
     n_modes = (2*nmax+1)**2
 
     # Sort by the largest eigenvalues
@@ -120,22 +121,26 @@ def reconstruct_eigenvectors(domain, eigenvecs, eigenvals, nmax, cutoff=0.5, nx=
     x = np.linspace(0, domain.extent[0], nx)
     y = np.linspace(0, domain.extent[1], ny)
     xgrid, ygrid = np.meshgrid(x,y)
-
+    dx = domain.extent[0]/nx
+    dy = domain.extent[1]/ny
     solution = []
-
+    
     for i in range(cutoff_n):
         vec = sorted_eigenvecs[:,i]
-        gen = generate_2D_basis_functions(nmax, domain.extent[0], domain.extent[1])
-        slepian_function = np.zeros_like(xgrid)
-        for j in range(n_modes):
-            try:
-                fn = next(gen)
-                slepian_function += vec[j]*fn(xgrid,ygrid)
-            except StopIteration:
-                raise Exception("Mismatch between expected length of an eigenvector and its actual length")
-        # Normalize solution
-        slepian_function /= np.sqrt(np.sum(slepian_function*slepian_function)*domain.extent[0]*domain.extent[1]/nx/ny)
-        solution.append( (sorted_eigenvals[i], slepian_function) )
+        if basis_function_type is 'interpolated':
+            gen = generate_2D_basis_functions(nmax, domain.extent[0], domain.extent[1])
+            slepian_grid_values = np.zeros_like(xgrid)
+            for j in range(n_modes):
+                try:
+                    fn = next(gen)
+                    slepian_grid_values += vec[j]*fn(xgrid,ygrid)
+                except StopIteration:
+                    raise Exception("Mismatch between expected length of an eigenvector and its actual length")
+            # Normalize solution
+            slepian_grid_values /= np.sqrt(np.sum(slepian_grid_values*slepian_grid_values)/dx/dy)
+            pts, vals = [p for p in zip(xgrid.flatten(), ygrid.flatten())], slepian_grid_values.flatten()
+            slepian_function = linear_interp(pts, vals)
+            solution.append( (sorted_eigenvals[i], slepian_function) )
     return solution
 
 def compute_slepian_basis( domain, nmax, numProc=multiprocessing.cpu_count()):
