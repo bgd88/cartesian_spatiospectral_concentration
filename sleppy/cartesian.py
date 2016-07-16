@@ -122,7 +122,6 @@ def reconstruct_eigenvectors(domain, eigenvecs, eigenvals, nmax, cutoff=0.5, nx=
     for i in range(cutoff_n):
         spectral_coefs = sorted_eigenvecs[:, i]
         if basis_function_type is 'interpolated':
-            print("using interp")
             # Create interpolator function
             slepian_function = interpolated_slepian_basis_function(domain, spectral_coefs, nmax)
             solution.append( (sorted_eigenvals[i], slepian_function) )
