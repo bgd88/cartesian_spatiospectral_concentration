@@ -107,8 +107,24 @@ def assemble_slepian_matrix_block(conn, domain, index_range, nmax):
                 if jj <= ii:  ## Not necessary to calculate the others due to symmetry
                     submatrix[ii-index_range[0], jj] = integrate_over_domain( domain, b1, b2, nx, ny)
     conn.send([submatrix,])
-           
-def reconstruct_eigenvectors(domain, eigenvecs, eigenvals, nmax, cutoff=0.5, nx=100, ny=100,
+
+
+def parallel_reconstruct_basis_functions(conn, index_list, sorted_eigenvecs, domain, nmax, basis_function_type):
+    solution, indices = [], []
+    for i in index_list:
+        spectral_coefs = sorted_eigenvecs[:, i]
+        if basis_function_type is 'interpolated':
+            # Create interpolator function
+            slepian_function = interpolated_slepian_basis_function(domain, spectral_coefs, nmax)
+        elif basis_function_type is 'exact':
+            # Create function using spectral coefficients
+            slepian_function = slepian_basis_function(domain, spectral_coefs, nmax)
+        solution.append(slepian_function)
+        indices.append(i)
+    conn.send([solution, indices])
+
+
+def reconstruct_eigenvectors(domain, eigenvecs, eigenvals, nmax, numProc, cutoff=0.5, nx=100, ny=100,
                              basis_function_type='exact'):
     n_modes = (2*nmax+1)**2
 
@@ -117,28 +133,44 @@ def reconstruct_eigenvectors(domain, eigenvecs, eigenvals, nmax, cutoff=0.5, nx=
     sorted_eigenvals = eigenvals[idx]
     sorted_eigenvecs = eigenvecs[:,idx]
     cutoff_n = np.argmin( np.abs(cutoff - sorted_eigenvals/sorted_eigenvals[0]))
-    solution = []
     
-    for i in range(cutoff_n):
-        spectral_coefs = sorted_eigenvecs[:, i]
-        if basis_function_type is 'interpolated':
-            # Create interpolator function
-            slepian_function = interpolated_slepian_basis_function(domain, spectral_coefs, nmax)
-            solution.append( (sorted_eigenvals[i], slepian_function) )
-        elif basis_function_type is 'exact':
-            # Create function using spectral coefficients
-            slepian_function = slepian_basis_function(domain, spectral_coefs, nmax)
-            solution.append( (sorted_eigenvals[i], slepian_function) )
-    return solution
+    # Spin up the processes
+    jobs = [] # list of processes
+    pipes = [] # list of pipes for communication
+    indices = range(cutoff_n)
+    partitioned_indices = [ indices[i::numProc] for i in range(numProc) ]
+    
+    for index_list in partitioned_indices:
+        c_recv, c_send = multiprocessing.Pipe(duplex=False)
+        proc = multiprocessing.Process(target=parallel_reconstruct_basis_functions,
+                args=(c_send, index_list, sorted_eigenvecs, domain, nmax, basis_function_type) )
+        pipes.append(c_recv)
+        jobs.append(proc)
+        proc.start()
+        
+    # Get the resulting eigenfunctions in each pipe
+    solution, solution_indices = [], []
+    for conn in pipes:
+        slepian_functions, indices = conn.recv()
+        solution_indices += indices
+        solution += slepian_functions 
+    idx = np.array(solution_indices).argsort()
+    sorted_solution = list(np.array(solution)[idx])
+
+    for j in jobs:
+        j.join()
+    
+    return [(eig, fun) for eig, fun in  zip(sorted_eigenvals, sorted_solution)]
+
 
 def compute_slepian_basis( domain, nmax, numProc=multiprocessing.cpu_count(), basis_function_type='exact'):
     print("Assembling matrix")
     mat = assemble_slepian_matrix( domain, nmax, numProc )
     print("Solving eigenvalue problem")
-    eigenvals,eigenvecs = linalg.eigh(mat)
+    eigenvals, eigenvecs = linalg.eigh(mat)
     print("Reconstructing eigenvectors")
     shannon = int(1.5*np.ceil(np.pi*nmax*nmax*domain.area/domain.extent[0]/domain.extent[1]))
-    basis = reconstruct_eigenvectors(domain, eigenvecs, eigenvals, nmax, 
+    basis = reconstruct_eigenvectors(domain, eigenvecs, eigenvals, nmax, numProc,
                                      basis_function_type=basis_function_type)
     return basis
 
@@ -154,7 +186,6 @@ class slepian_basis_function(object):
         error_message = "nmax not consistent with the number of spectral coefficients."
         assert self.nmodes == self.spectral_coefs.size, error_message
         self._set_normalization_coef()
-    
     def _set_normalization_coef(self):
         self.normalization_coef = np.sqrt(np.sum(self.spectral_coefs*self.spectral_coefs))/2.*np.pi/2.*np.pi
 
@@ -172,8 +203,8 @@ class slepian_basis_function(object):
 class interpolated_slepian_basis_function(slepian_basis_function):
     def __init__(self, domain, spectral_coefs, nmax, nx=100, ny=100):
         super().__init__(domain, spectral_coefs, nmax)
-        self.interpolator = self._create_interpolator(nx, ny)
-      
+        self.interpolator = self._create_interpolator(nx, ny) 
+    
     def _create_interpolator(self, nx, ny): 
         # Setup the grid for evaluating the functions
         x = np.linspace(0, self.extent[0], nx)
