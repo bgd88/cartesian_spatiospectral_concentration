@@ -203,7 +203,7 @@ class slepian_basis_function(object):
 
 class interpolated_slepian_basis_function(slepian_basis_function):
     def __init__(self, domain, spectral_coefs, nmax, nx=100, ny=100):
-        super().__init__(domain, spectral_coefs, nmax)
+        super(interpolated_slepian_basis_function, self).__init__(domain, spectral_coefs, nmax)
         self.interpolator = self._create_interpolator(nx, ny) 
     
     def _create_interpolator(self, nx, ny): 
@@ -214,7 +214,7 @@ class interpolated_slepian_basis_function(slepian_basis_function):
         dx = self.extent[0]/nx
         dy = self.extent[1]/ny
         
-        slepian_grid_values = super().__call__(xgrid, ygrid) 
+        slepian_grid_values = super(interpolated_slepian_basis_function, self).__call__(xgrid, ygrid) 
         # Create linear interpolator
         pts, vals = [p for p in zip(xgrid.flatten(), ygrid.flatten())], slepian_grid_values.flatten()
         return linear_interp(pts, vals)
