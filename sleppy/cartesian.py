@@ -3,20 +3,30 @@ from __future__ import absolute_import
 import numpy as np
 import numpy.ma as ma
 import numpy.linalg as linalg
+from numpy.polynomial.legendre import leggauss
 import multiprocessing 
 from scipy.interpolate import LinearNDInterpolator as linear_interp
 import copy 
 
-def integrate_over_domain( domain, basis_1, basis_2, nx, ny):
-    x = np.linspace(0, domain.extent[0], nx)
-    y = np.linspace(0, domain.extent[1], ny)
-    dx = domain.extent[0]/nx
-    dy = domain.extent[1]/ny
+def integrate_over_domain( domain, basis_1, basis_2, x_degree, y_degree):
+    # Get the gauss-legendre points and weights
+    x, xw = leggauss( x_degree )
+    y, yw = leggauss( y_degree )
+    # Rescale them to our domain interval
+    x = (x+1)*domain.extent[0]
+    y = (y+1)*domain.extent[1]
+    xw *= domain.extent[0]
+    yw *= domain.extent[1]
+    # Make the grid on which we will compute the integral
     xgrid, ygrid = np.meshgrid(x,y)
+    weights = np.outer(yw,xw)
+
+    # Integrate basis_1*basis_2 over the grid
     domain_grid = domain.in_subdomain(xgrid, ygrid)
     fn1 = ma.masked_where( ~domain_grid, basis_1(xgrid,ygrid))
     fn2 = ma.masked_where( ~domain_grid, basis_2(xgrid,ygrid))
-    value = np.sum( fn1*fn2 )*dx*dy
+    value = np.sum( fn1*fn2*weights )
+
     return value
 
     
