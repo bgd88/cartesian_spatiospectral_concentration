@@ -13,10 +13,10 @@ def integrate_over_domain( domain, basis_1, basis_2, x_degree, y_degree):
     x, xw = leggauss( x_degree )
     y, yw = leggauss( y_degree )
     # Rescale them to our domain interval
-    x = (x+1)*domain.extent[0]
-    y = (y+1)*domain.extent[1]
-    xw *= domain.extent[0]
-    yw *= domain.extent[1]
+    x = (x+1.)*domain.extent[0]/2.
+    y = (y+1.)*domain.extent[1]/2.
+    xw *= domain.extent[0]/2.
+    yw *= domain.extent[1]/2.
     # Make the grid on which we will compute the integral
     xgrid, ygrid = np.meshgrid(x,y)
     weights = np.outer(yw,xw)
