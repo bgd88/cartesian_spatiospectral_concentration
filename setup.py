@@ -8,5 +8,4 @@ setup(name='sleppy',
       author='Brent Delbridge and Ian Rose',
       author_email='delbridge@berkeley.edu and ian.r.rose@berkeley.edu',
       packages=['sleppy', 'sleppy.test'],
-     )
-
+      )
