@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sleppy
 import matplotlib.patches as patches
-import test
+import sleppy.test as test
 
 nmax = 4
 perimeter_file = "cas_slab1.0.clip"

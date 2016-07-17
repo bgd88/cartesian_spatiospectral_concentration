@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import sleppy
-import test
+import sleppy.test as test
 
 domain = sleppy.Rectangle( (10., 10.), (2., 2.), (8.,8.))
 

@@ -2,7 +2,7 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 import sleppy
-import test
+import sleppy.test as test
 
 R = 2.
 domain = sleppy.Disc( (2.*np.pi, 2.*np.pi), (np.pi,np.pi), R)

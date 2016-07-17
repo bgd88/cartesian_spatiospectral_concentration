@@ -186,6 +186,7 @@ class slepian_basis_function(object):
         error_message = "nmax not consistent with the number of spectral coefficients."
         assert self.nmodes == self.spectral_coefs.size, error_message
         self._set_normalization_coef()
+
     def _set_normalization_coef(self):
         self.normalization_coef = np.sqrt(np.sum(self.spectral_coefs*self.spectral_coefs))/2.*np.pi/2.*np.pi
 

@@ -7,6 +7,6 @@ setup(name='sleppy',
       description='Spatiospectral Concentration on a cartesian plane',
       author='Brent Delbridge and Ian Rose',
       author_email='delbridge@berkeley.edu and ian.r.rose@berkeley.edu',
-      packages=['sleppy', 'test'],
+      packages=['sleppy', 'sleppy.test'],
      )
 
