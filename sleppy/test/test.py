@@ -11,7 +11,7 @@ def check_orthogonality(domain, basis, tol=3e-2, nx=500, ny=500):
     max_error = 0
     for i, (eigVal_i, eigFun_i) in enumerate(basis):
         for j, (eigVal_j, eigFun_j) in enumerate(basis):
-            inner_product = np.sum(eigFun_i(xgrid, ygrid)*eigFun_j(xgrid, ygrid))*dx*dy*2.*np.pi
+            inner_product = np.sum(eigFun_i(xgrid, ygrid)*eigFun_j(xgrid, ygrid))*dx*dy
             if i != j:
                 max_error = max(inner_product, max_error)
                

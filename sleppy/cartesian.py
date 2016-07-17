@@ -188,7 +188,7 @@ class slepian_basis_function(object):
         self._set_normalization_coef()
 
     def _set_normalization_coef(self):
-        self.normalization_coef = np.sqrt(np.sum(self.spectral_coefs*self.spectral_coefs))/2.*np.pi/2.*np.pi
+        self.normalization_coef = np.sqrt(np.sum(self.spectral_coefs*self.spectral_coefs))
 
     def __call__(self, x, y):
         gen = generate_2D_basis_functions(self.nmax, self.extent[0], self.extent[1])
