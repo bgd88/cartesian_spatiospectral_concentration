@@ -7,6 +7,7 @@ from numpy.polynomial.legendre import leggauss
 import multiprocessing 
 from scipy.interpolate import LinearNDInterpolator as linear_interp
 import copy 
+import matplotlib.pyplot as plt
 
 def integrate_over_domain( domain, basis_1, basis_2, x_degree, y_degree):
     # Get the gauss-legendre points and weights
@@ -133,21 +134,19 @@ def parallel_reconstruct_basis_functions(conn, index_list, sorted_eigenvecs, dom
         indices.append(i)
     conn.send([solution, indices])
 
-
-def reconstruct_eigenvectors(domain, eigenvecs, eigenvals, nmax, numProc, cutoff=0.5, nx=100, ny=100,
-                             basis_function_type='exact'):
+def reconstruct_eigenvectors(domain, eigenvecs, eigenvals, nmax, numProc, shannon_number, nx=500, ny=500,
+                             basis_function_type='exact', plot_eigenvalues=False):
     n_modes = (2*nmax+1)**2
 
     # Sort by the largest eigenvalues
     idx = eigenvals.argsort()[::-1]   
     sorted_eigenvals = eigenvals[idx]
-    sorted_eigenvecs = eigenvecs[:,idx]
-    cutoff_n = np.argmin( np.abs(cutoff - sorted_eigenvals/sorted_eigenvals[0]))
+    sorted_eigenvecs = eigenvecs[:,idx] 
     
     # Spin up the processes
     jobs = [] # list of processes
     pipes = [] # list of pipes for communication
-    indices = range(cutoff_n)
+    indices = range(shannon_number)
     partitioned_indices = [ indices[i::numProc] for i in range(numProc) ]
     
     for index_list in partitioned_indices:
@@ -169,7 +168,13 @@ def reconstruct_eigenvectors(domain, eigenvecs, eigenvals, nmax, numProc, cutoff
 
     for j in jobs:
         j.join()
-    
+    fig = plt.figure()
+    if plot_eigenvalues:    
+        ax = fig.add_subplot(111)
+        plt.plot(sorted_eigenvals,'rx')
+        plt.axvline(shannon_number)
+        plt.show()
+        plt.draw()
     return [(eig, fun) for eig, fun in  zip(sorted_eigenvals, sorted_solution)]
 
 
@@ -179,8 +184,9 @@ def compute_slepian_basis( domain, nmax, numProc=multiprocessing.cpu_count(), ba
     print("Solving eigenvalue problem")
     eigenvals, eigenvecs = linalg.eigh(mat)
     print("Reconstructing eigenvectors")
-    shannon = int(1.5*np.ceil(np.pi*nmax*nmax*domain.area/domain.extent[0]/domain.extent[1]))
-    basis = reconstruct_eigenvectors(domain, eigenvecs, eigenvals, nmax, numProc,
+    shannon = int(np.ceil(np.pi*nmax*nmax*domain.area/domain.extent[0]/domain.extent[1]))
+    print("Keeping the first {} eigenvalues".format(shannon))
+    basis = reconstruct_eigenvectors(domain, eigenvecs, eigenvals, nmax, numProc, shannon,
                                      basis_function_type=basis_function_type)
     return basis
 
